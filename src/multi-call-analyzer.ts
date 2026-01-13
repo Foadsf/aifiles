@@ -121,6 +121,10 @@ Please fix ALL the issues from previous attempts. Make sure to:
 
       const result = await parseJson(response);
 
+      // Handle Gemini normalized keys
+      if (!result.title && result.file_title) result.title = result.file_title;
+      if (!result.summary && result.file_summary) result.summary = result.file_summary;
+
       // Validate required fields for basic content analysis
       if (!result || typeof result !== 'object') {
         throw new Error('Invalid JSON response: not an object');
@@ -244,6 +248,9 @@ Please fix ALL the issues from previous attempts. Make sure to:
       }
 
       const result = await parseJson(response);
+
+      // Handle Gemini normalized keys
+      if (!result.category && result.file_category) result.category = result.file_category;
 
       // Validate required fields for categorization
       if (!result || typeof result !== 'object') {
@@ -379,6 +386,9 @@ Please fix ALL the issues from previous attempts. Make sure to:
       }
 
       const result = await parseJson(response);
+
+      // Handle Gemini normalized keys
+      if (!result.tags && result.file_tags) result.tags = result.file_tags;
 
       // Validate required fields for metadata
       if (!result || typeof result !== 'object') {
@@ -989,6 +999,12 @@ Please fix ALL the issues from previous attempts. Make sure to:
       }
 
       const result = await parseJson(response);
+
+      // Handle Gemini normalized keys
+      if (!result.title && result.file_title) result.title = result.file_title;
+      if (!result.summary && result.file_summary) result.summary = result.file_summary;
+      if (!result.category && result.file_category) result.category = result.file_category;
+      if (!result.tags && result.file_tags) result.tags = result.file_tags;
 
       // Validate required fields for single-call analysis
       if (!result || typeof result !== 'object') {

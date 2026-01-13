@@ -102,6 +102,7 @@ export class GeminiProvider implements LLMProvider {
       // If title missing, we can't really guess it here without context, but empty string is better than undefined
       if (!normalized.file_title) normalized.file_title = '';
 
+      console.log('Validating JSON:', JSON.stringify(normalized, null, 2));
       return JSON.stringify(normalized);
     } catch (e) {
       return jsonStr;
