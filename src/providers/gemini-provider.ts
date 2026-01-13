@@ -26,24 +26,84 @@ export class GeminiProvider implements LLMProvider {
     });
   }
 
-  private normalizeJson(jsonStr: string): string {
+  private findDataObject(obj: any): any {
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+      return obj;
+    }
+
+    const keys = Object.keys(obj);
+
+    // If it has expected keys, return it
+    const hasExpectedKeys = keys.some(k =>
+      ['file_title', 'file_category', 'file_tags', 'file_summary'].includes(k)
+    );
+    if (hasExpectedKeys) return obj;
+
+    // If single key pointing to object, go deeper
+    if (keys.length === 1 && typeof obj[keys[0]] === 'object' && !Array.isArray(obj[keys[0]])) {
+      return this.findDataObject(obj[keys[0]]);
+    }
+
+    // If multiple keys but one looks like a wrapper (e.g. "response", "data", "analysis")
+    // and its value is an object, prefer that.
+    const wrapperKeys = ['analysis', 'result', 'response', 'data', 'content', 'output', 'json'];
+    for (const key of wrapperKeys) {
+        if (obj[key] && typeof obj[key] === 'object' && !Array.isArray(obj[key])) {
+            return this.findDataObject(obj[key]);
+        }
+    }
+
+    return obj;
+  }
+
+  private normalizeResponse(jsonStr: string): string {
     try {
       let data = JSON.parse(jsonStr);
 
-      // Unwrap if wrapped in a single key (e.g. { "analysis": { ... } })
-      const keys = Object.keys(data);
-      if (keys.length === 1 && typeof data[keys[0]] === 'object' && !Array.isArray(data[keys[0]]) && data[keys[0]] !== null) {
-        data = data[keys[0]];
+      // 1. Recursive search for the data object
+      data = this.findDataObject(data);
+
+      // 2. Remap keys case-insensitively
+      const normalized: any = {};
+      const map: Record<string, string> = {
+        'title': 'file_title', 'name': 'file_title', 'filename': 'file_title', 'headline': 'file_title',
+        'category': 'file_category', 'type': 'file_category', 'classification': 'file_category',
+        'tags': 'file_tags', 'keywords': 'file_tags', 'topics': 'file_tags',
+        'summary': 'file_summary', 'description': 'file_summary', 'abstract': 'file_summary'
+      };
+
+      // Helper to set if not already set
+      const setIfMissing = (targetKey: string, value: any) => {
+          if (!normalized[targetKey]) normalized[targetKey] = value;
+      };
+
+      for (const [key, value] of Object.entries(data)) {
+         const lowerKey = key.toLowerCase();
+         // If it matches a standard key exactly
+         if (['file_title', 'file_category', 'file_tags', 'file_summary'].includes(lowerKey)) {
+             normalized[lowerKey] = value;
+             continue;
+         }
+
+         // Check map
+         if (map[lowerKey]) {
+             setIfMissing(map[lowerKey], value);
+             continue;
+         }
+
+         // Preserve other keys
+         normalized[key] = value;
       }
 
-      // Map generic keys to specific fields
-      if (data.title && !data.file_title) data.file_title = data.title;
-      if (data.category && !data.file_category) data.file_category = data.category;
-      if (data.tags && !data.file_tags) data.file_tags = data.tags;
+      // 3. Defaults
+      if (!normalized.file_category) normalized.file_category = 'General';
+      if (!normalized.file_tags) normalized.file_tags = [];
+      if (!normalized.file_summary) normalized.file_summary = '';
+      // If title missing, we can't really guess it here without context, but empty string is better than undefined
+      if (!normalized.file_title) normalized.file_title = '';
 
-      return JSON.stringify(data);
+      return JSON.stringify(normalized);
     } catch (e) {
-      // If parsing fails, return original string (caller will likely fail to parse it too)
       return jsonStr;
     }
   }
@@ -91,7 +151,7 @@ export class GeminiProvider implements LLMProvider {
         const response = await result.response;
         const text = response.text();
         const cleaned = this.cleanJsonOutput(text);
-        return this.normalizeJson(cleaned);
+        return this.normalizeResponse(cleaned);
       } catch (error: any) {
         attempts++;
         const errorMessage = error.message || '';
@@ -136,6 +196,9 @@ export class GeminiProvider implements LLMProvider {
       console.warn(`File content (${content.length} chars) exceeds free tier limit. Truncated to ${this.MAX_FREE_TIER_CHARS} chars to prevent API errors.`);
       content = content.substring(0, this.MAX_FREE_TIER_CHARS);
     }
+    // Append strict format instruction
+    content += '\n\nIMPORTANT: Return a FLAT JSON object. Keys MUST be exactly: file_title, file_category, file_tags, file_summary.';
+
     return this.generateContentWithRetry(content, 'sendMessage');
   }
 
@@ -153,7 +216,9 @@ export class GeminiProvider implements LLMProvider {
         },
       };
 
-      return this.generateContentWithRetry([prompt, imagePart], 'vision');
+      const promptWithFormat = prompt + '\n\nIMPORTANT: Return a FLAT JSON object. Keys MUST be exactly: file_title, file_category, file_tags, file_summary.';
+
+      return this.generateContentWithRetry([promptWithFormat, imagePart], 'vision');
     } catch (error: any) {
         // readFile errors might be caught here if they happen before generateContentWithRetry
         throw new Error(`Gemini vision API error: ${error.message}`);
