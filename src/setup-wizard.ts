@@ -6,6 +6,8 @@ import path from 'path';
 import os from 'os';
 import { fileExists } from './utils.js';
 import { execa } from 'execa';
+// @ts-ignore
+import { getGeminiModels } from '../scripts/list-gemini-models.js';
 
 // Check if running in non-interactive mode
 const isNonInteractive = process.env.AIFILES_NON_INTERACTIVE === 'true' ||
@@ -325,15 +327,37 @@ LLM_MODEL=${model}
       console.log(yellow('⚠️  Gemini API key not provided in AIFILES_GEMINI_API_KEY\n'));
     }
 
+    let modelOptions = [
+      { value: 'gemini-3.0-pro', label: 'Gemini 3.0 Pro - Reasoning & High Intelligence' },
+      { value: 'gemini-3.0-flash', label: 'Gemini 3.0 Flash - High Speed & Efficiency' },
+    ];
+
+    if (!isNonInteractive && apiKey) {
+      const s = spinner();
+      s.start('Fetching available Gemini models...');
+      try {
+        const fetchedModels = await getGeminiModels(apiKey);
+        if (fetchedModels && fetchedModels.length > 0) {
+          modelOptions = fetchedModels.map((m: any) => ({
+            value: m.name,
+            label: m.displayName || m.name,
+            hint: m.description ? m.description.substring(0, 60) + '...' : undefined
+          }));
+        }
+        s.stop('Models fetched successfully');
+      } catch (e) {
+        s.stop('Failed to fetch models, using defaults');
+      }
+    }
+
+    // Add custom option
+    modelOptions.push({ value: 'custom', label: 'Enter Custom Model Name', hint: 'Manually type the model ID' } as any);
+
     let model = isNonInteractive ?
       (process.env.AIFILES_LLM_MODEL || 'gemini-3.0-pro') :
       await select({
         message: 'Choose model:',
-        options: [
-          { value: 'gemini-3.0-pro', label: 'Gemini 3.0 Pro - Reasoning & High Intelligence' },
-          { value: 'gemini-3.0-flash', label: 'Gemini 3.0 Flash - High Speed & Efficiency' },
-          { value: 'custom', label: 'Enter Custom Model Name', hint: 'Manually type the model ID' },
-        ],
+        options: modelOptions,
       }) as string;
 
     if (model === 'custom') {

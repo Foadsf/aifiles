@@ -9,6 +9,8 @@ export class GeminiProvider implements LLMProvider {
   private genAI: GoogleGenerativeAI;
   private model: GenerativeModel;
 
+  private readonly MAX_FREE_TIER_CHARS = 800000;
+
   constructor(
     apiKey: string,
     model: string = 'gemini-3.0-pro'
@@ -32,7 +34,13 @@ export class GeminiProvider implements LLMProvider {
 
   async sendMessage(prompt: string): Promise<string> {
     try {
-      const result = await this.model.generateContent(prompt);
+      let content = prompt;
+      if (content.length > this.MAX_FREE_TIER_CHARS) {
+        console.warn(`File content (${content.length} chars) exceeds free tier limit. Truncated to ${this.MAX_FREE_TIER_CHARS} chars to prevent API errors.`);
+        content = content.substring(0, this.MAX_FREE_TIER_CHARS);
+      }
+
+      const result = await this.model.generateContent(content);
       const response = await result.response;
       return response.text();
     } catch (error: any) {

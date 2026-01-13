@@ -27,7 +27,38 @@ function readConfig() {
   return {};
 }
 
-async function listModels() {
+export async function getGeminiModels(apiKey) {
+  try {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const models = [];
+
+    if (data.models && Array.isArray(data.models)) {
+        data.models.forEach((model) => {
+            // Filter for generateContent supported models usually used for chat/text
+            if (model.supportedGenerationMethods && model.supportedGenerationMethods.includes('generateContent')) {
+                 models.push({
+                    name: model.name.replace('models/', ''),
+                    displayName: model.displayName,
+                    version: model.version,
+                    description: model.description
+                 });
+            }
+        });
+    }
+    return models;
+
+  } catch (error) {
+    throw new Error(`Failed to list models: ${error.message}`);
+  }
+}
+
+async function main() {
   const config = readConfig();
   const apiKey = process.env.AIFILES_GEMINI_API_KEY ||
                  process.env.GEMINI_API_KEY ||
@@ -41,34 +72,27 @@ async function listModels() {
 
   try {
     console.log('Fetching available models...');
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+    const models = await getGeminiModels(apiKey);
 
-    if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    if (data.models && Array.isArray(data.models)) {
+    if (models.length > 0) {
         console.log('\nAvailable Gemini Models:');
         console.log('------------------------');
-        data.models.forEach((model) => {
-            // Filter for generateContent supported models usually used for chat/text
-            if (model.supportedGenerationMethods && model.supportedGenerationMethods.includes('generateContent')) {
-                 console.log(`Name: ${model.name.replace('models/', '')}`);
-                 console.log(`Display Name: ${model.displayName}`);
-                 console.log(`Version: ${model.version}`);
-                 console.log(`Description: ${model.description}`);
-                 console.log('------------------------');
-            }
+        models.forEach(model => {
+             console.log(`Name: ${model.name}`);
+             console.log(`Display Name: ${model.displayName}`);
+             console.log(`Version: ${model.version}`);
+             console.log(`Description: ${model.description}`);
+             console.log('------------------------');
         });
     } else {
         console.log('No models found or unexpected response format.');
     }
-
   } catch (error) {
-    console.error('Failed to list models:', error.message);
+      console.error(error.message);
   }
 }
 
-listModels();
+// Check if running directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main();
+}
