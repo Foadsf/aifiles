@@ -40,6 +40,8 @@ ${green("COMMAND LINE FLAGS")}
   ${yellow("-b, --batch")}             Process multiple files (non-interactive)
   ${yellow("-u, --unattended")}        Skip all prompts and auto-organize
   ${yellow("--single-call")}           Use single LLM call instead of multi-call analysis
+  ${yellow("-i, --inplace")}           Rename file in its current directory (do not move to subfolders)
+  ${yellow("-q, --quick")}             Skip interactive prompts (revision, context) and use defaults
 
 ${green("FILE TYPES SUPPORTED")}
   📄 Documents: PDF, DOCX, XLSX, TXT, MD, HTML
@@ -123,6 +125,16 @@ const argv = cli({
       type: Boolean,
       description: "Use single LLM call analysis instead of multi-call",
     },
+    inplace: {
+      type: Boolean,
+      alias: "i",
+      description: "Rename file in its current directory (do not move to subfolders)",
+    },
+    quick: {
+      type: Boolean,
+      alias: "q",
+      description: "Skip interactive prompts (revision, context) and use defaults",
+    },
   },
 });
 
@@ -130,6 +142,12 @@ const argv = cli({
 await createDefaultConfig();
 
 const config = await getConfig();
+
+// Handle --quick flag overrides
+if (argv.flags.quick) {
+  config.PROMPT_FOR_REVISION_NUMBER = false;
+  config.PROMPT_FOR_CUSTOM_CONTEXT = false;
+}
 
 // Initialize and acquire lockfile to prevent multiple instances
 // Use different lockfiles for watch mode vs normal mode
@@ -947,6 +965,11 @@ if (!exists) {
       }
 
       filenameSpinner.stop("Filename generated!");
+
+      // Handle inplace flag - ignore folder structure and keep in current directory
+      if (argv.flags.inplace) {
+        newFile = path.join(mainDir, path.basename(newFile));
+      }
 
       if (argv.flags.verbose) {
         console.log(`${green("✔")} New path: ${newFile}`);

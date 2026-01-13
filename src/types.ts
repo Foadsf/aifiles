@@ -45,6 +45,8 @@ export interface AIFilesConfig {
   WATCH_MODE_PROMPT?: string;
   ORGANIZATION_PROMPT_TEMPLATE?: string;
   IMAGE_CAPTION_PROMPT?: string;
+  inplace?: boolean;
+  quick?: boolean;
 }
 
 // File operation types
