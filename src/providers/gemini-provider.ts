@@ -21,8 +21,31 @@ export class GeminiProvider implements LLMProvider {
     this.genAI = new GoogleGenerativeAI(this.apiKey);
     this.model = this.genAI.getGenerativeModel({
       model: this.modelName,
-      generationConfig: { responseMimeType: 'application/json' }
+      generationConfig: { responseMimeType: 'application/json' },
+      systemInstruction: 'Return a flat JSON object. Do not nest the result under any root key like "analysis" or "json".'
     });
+  }
+
+  private normalizeJson(jsonStr: string): string {
+    try {
+      let data = JSON.parse(jsonStr);
+
+      // Unwrap if wrapped in a single key (e.g. { "analysis": { ... } })
+      const keys = Object.keys(data);
+      if (keys.length === 1 && typeof data[keys[0]] === 'object' && !Array.isArray(data[keys[0]]) && data[keys[0]] !== null) {
+        data = data[keys[0]];
+      }
+
+      // Map generic keys to specific fields
+      if (data.title && !data.file_title) data.file_title = data.title;
+      if (data.category && !data.file_category) data.file_category = data.category;
+      if (data.tags && !data.file_tags) data.file_tags = data.tags;
+
+      return JSON.stringify(data);
+    } catch (e) {
+      // If parsing fails, return original string (caller will likely fail to parse it too)
+      return jsonStr;
+    }
   }
 
   private cleanJsonOutput(text: string): string {
@@ -67,7 +90,8 @@ export class GeminiProvider implements LLMProvider {
         const result = await this.model.generateContent(params);
         const response = await result.response;
         const text = response.text();
-        return this.cleanJsonOutput(text);
+        const cleaned = this.cleanJsonOutput(text);
+        return this.normalizeJson(cleaned);
       } catch (error: any) {
         attempts++;
         const errorMessage = error.message || '';
