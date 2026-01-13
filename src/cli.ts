@@ -147,6 +147,7 @@ const config = await getConfig();
 if (argv.flags.quick) {
   config.PROMPT_FOR_REVISION_NUMBER = false;
   config.PROMPT_FOR_CUSTOM_CONTEXT = false;
+  argv.flags.force = true; // Auto-confirm for quick mode
 }
 
 // Initialize and acquire lockfile to prevent multiple instances

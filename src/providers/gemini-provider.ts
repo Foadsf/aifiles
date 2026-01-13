@@ -9,7 +9,7 @@ export class GeminiProvider implements LLMProvider {
   private genAI: GoogleGenerativeAI;
   private model: GenerativeModel;
 
-  private readonly MAX_FREE_TIER_CHARS = 400000;
+  private readonly MAX_FREE_TIER_CHARS = 150000;
   private readonly MAX_RETRIES = 3;
 
   constructor(
