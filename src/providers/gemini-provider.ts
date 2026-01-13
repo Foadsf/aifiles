@@ -63,63 +63,67 @@ export class GeminiProvider implements LLMProvider {
       // 1. Recursive search for the data object
       data = this.findDataObject(data);
 
-      // 2. Remap keys case-insensitively
+      // 2. Remap keys to application schema (title, summary, category, etc.)
       const normalized: any = {};
-      const map: Record<string, string> = {
-        'title': 'file_title', 'name': 'file_title', 'filename': 'file_title', 'headline': 'file_title',
-        'category': 'file_category', 'type': 'file_category', 'classification': 'file_category',
-        'tags': 'file_tags', 'keywords': 'file_tags', 'topics': 'file_tags',
-        'summary': 'file_summary', 'description': 'file_summary', 'abstract': 'file_summary'
-      };
 
-      // Helper to set if not already set
-      const setIfMissing = (targetKey: string, value: any) => {
-          if (!normalized[targetKey]) normalized[targetKey] = value;
+      // Mapping table: Input Key (lower) -> Target Key
+      const map: Record<string, string> = {
+        'file_title': 'title', 'title': 'title', 'filename': 'title', 'name': 'title',
+        'file_category': 'category', 'category': 'category', 'classification': 'category', 'type': 'category',
+        'file_summary': 'summary', 'summary': 'summary', 'description': 'summary', 'abstract': 'summary',
+        'file_tags': 'tags', 'tags': 'tags', 'topics': 'tags',
+        'file_keywords': 'keywords', 'keywords': 'keywords',
+        'suggestedpath': 'suggestedPath', 'path': 'suggestedPath',
+        'suggestedfilename': 'suggestedFilename',
+        'confidence': 'confidence'
       };
 
       for (const [key, value] of Object.entries(data)) {
          const lowerKey = key.toLowerCase();
-         // If it matches a standard key exactly
-         if (['file_title', 'file_category', 'file_tags', 'file_summary'].includes(lowerKey)) {
-             normalized[lowerKey] = value;
-             continue;
-         }
-
-         // Check map
          if (map[lowerKey]) {
-             setIfMissing(map[lowerKey], value);
-             continue;
+             // If target already set, don't overwrite unless current value is truthy and previous was falsy
+             if (!normalized[map[lowerKey]]) {
+                 normalized[map[lowerKey]] = value;
+             }
+         } else {
+             // Preserve other keys (mainTopic, contentType, subcategories, etc.)
+             normalized[key] = value;
          }
-
-         // Preserve other keys
-         normalized[key] = value;
       }
 
-      // 3. Defaults
-      if (!normalized.file_category) normalized.file_category = 'General';
-      if (!normalized.file_tags) normalized.file_tags = [];
-      if (!normalized.file_summary) normalized.file_summary = '';
-      // If title missing, we can't really guess it here without context, but empty string is better than undefined
-      if (!normalized.file_title) normalized.file_title = '';
+      // 3. Enforce defaults and types
+      if (!normalized.title) normalized.title = 'Untitled';
+      if (!normalized.category) normalized.category = 'General';
+      if (!normalized.summary) normalized.summary = '';
+      if (!normalized.tags) normalized.tags = [];
+      if (!normalized.keywords) normalized.keywords = [];
 
-      // 4. Synthesize suggestedPath if missing (required for validation)
+      // Ensure arrays
+      if (!Array.isArray(normalized.tags)) normalized.tags = [String(normalized.tags)];
+      if (!Array.isArray(normalized.keywords)) normalized.keywords = [String(normalized.keywords)];
+
+      // 4. Synthesize suggestedPath/Filename if missing
       if (!normalized.suggestedPath) {
-        // Construct a safe default path: Category/Title
-        const safeTitle = normalized.file_title.replace(/[^a-zA-Z0-9_-]/g, '_');
-        const safeCategory = normalized.file_category.replace(/[^a-zA-Z0-9_-]/g, '_');
+        const safeTitle = String(normalized.title).replace(/[^a-zA-Z0-9_-]/g, '_');
+        const safeCategory = String(normalized.category).replace(/[^a-zA-Z0-9_-]/g, '_');
         normalized.suggestedPath = `${safeCategory}/${safeTitle}`;
       }
 
-      // 5. Synthesize suggestedFilename if missing
       if (!normalized.suggestedFilename) {
-         const ext = 'txt'; // Default extension if unknown
-         const safeTitle = (normalized.file_title || 'untitled').replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
-         normalized.suggestedFilename = `${safeTitle}.${ext}`;
+         const safeTitle = String(normalized.title).replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
+         normalized.suggestedFilename = `${safeTitle}.txt`;
       }
 
-      console.log('Validating JSON:', JSON.stringify(normalized, null, 2));
-      return JSON.stringify(normalized);
+      // 5. Confidence
+      if (typeof normalized.confidence !== 'number') {
+          normalized.confidence = 0.8;
+      }
+
+      const finalJson = JSON.stringify(normalized);
+      console.log('Final JSON Payload Length:', finalJson.length);
+      return finalJson;
     } catch (e) {
+      // If parsing fails, we return the cleaned string and let the consumer try to handle it
       return jsonStr;
     }
   }
