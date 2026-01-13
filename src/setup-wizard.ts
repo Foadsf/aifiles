@@ -325,15 +325,26 @@ LLM_MODEL=${model}
       console.log(yellow('⚠️  Gemini API key not provided in AIFILES_GEMINI_API_KEY\n'));
     }
 
-    const model = isNonInteractive ?
+    let model = isNonInteractive ?
       (process.env.AIFILES_LLM_MODEL || 'gemini-3.0-pro') :
       await select({
         message: 'Choose model:',
         options: [
           { value: 'gemini-3.0-pro', label: 'Gemini 3.0 Pro - Reasoning & High Intelligence' },
           { value: 'gemini-3.0-flash', label: 'Gemini 3.0 Flash - High Speed & Efficiency' },
+          { value: 'custom', label: 'Enter Custom Model Name', hint: 'Manually type the model ID' },
         ],
       }) as string;
+
+    if (model === 'custom') {
+      model = await text({
+        message: 'Enter custom Gemini model name:',
+        placeholder: 'e.g., gemini-experimental',
+        validate: (value) => {
+          if (!value) return 'Model name is required';
+        },
+      }) as string;
+    }
 
     selectedModel = model;
     config += `GEMINI_API_KEY=${apiKey}

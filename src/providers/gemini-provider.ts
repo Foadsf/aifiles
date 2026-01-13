@@ -19,13 +19,24 @@ export class GeminiProvider implements LLMProvider {
     this.model = this.genAI.getGenerativeModel({ model: this.modelName });
   }
 
+  private handleGeminiError(error: any, context: string): never {
+    const errorMessage = error.message || '';
+    if (errorMessage.includes('404') || errorMessage.toLowerCase().includes('not found')) {
+      throw new Error(
+        `Gemini API error (${context}): The model '${this.modelName}' was not found. ` +
+        `Please verify the model name or run 'npm run list-models' to see available models.`
+      );
+    }
+    throw new Error(`Gemini API error (${context}): ${errorMessage}`);
+  }
+
   async sendMessage(prompt: string): Promise<string> {
     try {
       const result = await this.model.generateContent(prompt);
       const response = await result.response;
       return response.text();
     } catch (error: any) {
-      throw new Error(`Gemini API error: ${error.message}`);
+      this.handleGeminiError(error, 'sendMessage');
     }
   }
 
@@ -47,7 +58,7 @@ export class GeminiProvider implements LLMProvider {
       const response = await result.response;
       return response.text();
     } catch (error: any) {
-      throw new Error(`Gemini vision API error: ${error.message}`);
+      this.handleGeminiError(error, 'vision');
     }
   }
 
