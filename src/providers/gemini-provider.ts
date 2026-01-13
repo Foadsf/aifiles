@@ -102,6 +102,21 @@ export class GeminiProvider implements LLMProvider {
       // If title missing, we can't really guess it here without context, but empty string is better than undefined
       if (!normalized.file_title) normalized.file_title = '';
 
+      // 4. Synthesize suggestedPath if missing (required for validation)
+      if (!normalized.suggestedPath) {
+        // Construct a safe default path: Category/Title
+        const safeTitle = normalized.file_title.replace(/[^a-zA-Z0-9_-]/g, '_');
+        const safeCategory = normalized.file_category.replace(/[^a-zA-Z0-9_-]/g, '_');
+        normalized.suggestedPath = `${safeCategory}/${safeTitle}`;
+      }
+
+      // 5. Synthesize suggestedFilename if missing
+      if (!normalized.suggestedFilename) {
+         const ext = 'txt'; // Default extension if unknown
+         const safeTitle = (normalized.file_title || 'untitled').replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
+         normalized.suggestedFilename = `${safeTitle}.${ext}`;
+      }
+
       console.log('Validating JSON:', JSON.stringify(normalized, null, 2));
       return JSON.stringify(normalized);
     } catch (e) {
