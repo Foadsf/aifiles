@@ -9,7 +9,8 @@ export class GeminiProvider implements LLMProvider {
   private genAI: GoogleGenerativeAI;
   private model: GenerativeModel;
 
-  private readonly MAX_FREE_TIER_CHARS = 800000;
+  private readonly MAX_FREE_TIER_CHARS = 400000;
+  private readonly MAX_RETRIES = 3;
 
   constructor(
     apiKey: string,
@@ -32,20 +33,62 @@ export class GeminiProvider implements LLMProvider {
     throw new Error(`Gemini API error (${context}): ${errorMessage}`);
   }
 
-  async sendMessage(prompt: string): Promise<string> {
-    try {
-      let content = prompt;
-      if (content.length > this.MAX_FREE_TIER_CHARS) {
-        console.warn(`File content (${content.length} chars) exceeds free tier limit. Truncated to ${this.MAX_FREE_TIER_CHARS} chars to prevent API errors.`);
-        content = content.substring(0, this.MAX_FREE_TIER_CHARS);
-      }
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
 
-      const result = await this.model.generateContent(content);
-      const response = await result.response;
-      return response.text();
-    } catch (error: any) {
-      this.handleGeminiError(error, 'sendMessage');
+  private async generateContentWithRetry(params: any, context: string): Promise<string> {
+    let attempts = 0;
+    while (attempts <= this.MAX_RETRIES) {
+      try {
+        const result = await this.model.generateContent(params);
+        const response = await result.response;
+        return response.text();
+      } catch (error: any) {
+        attempts++;
+        const errorMessage = error.message || '';
+
+        // Check for 429 or rate limit message
+        // The error might contain "429" or text like "Please retry in 54s"
+        const isRateLimit = errorMessage.includes('429') ||
+                            errorMessage.toLowerCase().includes('too many requests') ||
+                            errorMessage.toLowerCase().includes('quota') ||
+                            errorMessage.toLowerCase().includes('retry in');
+
+        if (isRateLimit && attempts <= this.MAX_RETRIES) {
+            // Try to parse wait time
+            // Example: "Please retry in 54s" or "Retry after 60 seconds"
+            const match = errorMessage.match(/retry (?:in|after) ([0-9.]+)s/i);
+            let waitSeconds = 60; // Default wait
+
+            if (match && match[1]) {
+                waitSeconds = parseFloat(match[1]);
+            }
+
+            console.warn(`⚠️ Quota exceeded (Attempt ${attempts}/${this.MAX_RETRIES}). Waiting ${waitSeconds}s as requested by API...`);
+            await this.sleep((waitSeconds * 1000) + 1000); // Add 1s buffer
+            continue;
+        }
+
+        // If not rate limit or max retries reached, throw
+        if (attempts > this.MAX_RETRIES) {
+           this.handleGeminiError(error, context);
+        } else {
+            // If it's another kind of error (like 404), throw immediately without retry
+             this.handleGeminiError(error, context);
+        }
+      }
     }
+    throw new Error(`Gemini API error (${context}): Max retries exceeded`);
+  }
+
+  async sendMessage(prompt: string): Promise<string> {
+    let content = prompt;
+    if (content.length > this.MAX_FREE_TIER_CHARS) {
+      console.warn(`File content (${content.length} chars) exceeds free tier limit. Truncated to ${this.MAX_FREE_TIER_CHARS} chars to prevent API errors.`);
+      content = content.substring(0, this.MAX_FREE_TIER_CHARS);
+    }
+    return this.generateContentWithRetry(content, 'sendMessage');
   }
 
   async analyzeImage(imagePath: string, prompt: string = 'Describe this image concisely'): Promise<string> {
@@ -62,11 +105,10 @@ export class GeminiProvider implements LLMProvider {
         },
       };
 
-      const result = await this.model.generateContent([prompt, imagePart]);
-      const response = await result.response;
-      return response.text();
+      return this.generateContentWithRetry([prompt, imagePart], 'vision');
     } catch (error: any) {
-      this.handleGeminiError(error, 'vision');
+        // readFile errors might be caught here if they happen before generateContentWithRetry
+        throw new Error(`Gemini vision API error: ${error.message}`);
     }
   }
 
