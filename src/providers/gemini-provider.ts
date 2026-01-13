@@ -19,7 +19,30 @@ export class GeminiProvider implements LLMProvider {
     this.apiKey = apiKey;
     this.modelName = model;
     this.genAI = new GoogleGenerativeAI(this.apiKey);
-    this.model = this.genAI.getGenerativeModel({ model: this.modelName });
+    this.model = this.genAI.getGenerativeModel({
+      model: this.modelName,
+      generationConfig: { responseMimeType: 'application/json' }
+    });
+  }
+
+  private cleanJsonOutput(text: string): string {
+    let cleanText = text.trim();
+    // Remove markdown code fences if present
+    if (cleanText.startsWith('```json')) {
+      cleanText = cleanText.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+    } else if (cleanText.startsWith('```')) {
+      cleanText = cleanText.replace(/^```\s*/, '').replace(/\s*```$/, '');
+    }
+
+    // Find the first '{' and last '}' to extract JSON object
+    const firstBrace = cleanText.indexOf('{');
+    const lastBrace = cleanText.lastIndexOf('}');
+
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      return cleanText.substring(firstBrace, lastBrace + 1);
+    }
+
+    return cleanText;
   }
 
   private handleGeminiError(error: any, context: string): never {
@@ -43,7 +66,8 @@ export class GeminiProvider implements LLMProvider {
       try {
         const result = await this.model.generateContent(params);
         const response = await result.response;
-        return response.text();
+        const text = response.text();
+        return this.cleanJsonOutput(text);
       } catch (error: any) {
         attempts++;
         const errorMessage = error.message || '';
