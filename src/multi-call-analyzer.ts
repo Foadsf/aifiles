@@ -1,5 +1,6 @@
 import { generatePromptResponse, parseJson, ConfigType } from './utils.js';
 import type { FolderTemplate } from './folder-templates.js';
+import { FileLogger } from './file-logger.js';
 
 /**
  * Multi-call file analysis system
@@ -54,19 +55,23 @@ async function analyzeBasicContent(
   config: ConfigType,
   fileName: string,
   fileContent: string,
-  mimeType: string | null
+  mimeType: string | null,
+  filePath?: string
 ): Promise<{
   title: string;
   summary: string;
   mainTopic: string;
   contentType: string;
 }> {
+  const logger = FileLogger.getInstance();
+  const isImage = mimeType?.startsWith('image/');
+
   const prompt = `Analyze this file and provide a basic understanding.
 
 FILE NAME: ${fileName}
 MIME TYPE: ${mimeType || 'unknown'}
 FILE CONTENT:
-${fileContent} // Full content provided for maximum context
+${isImage ? '[Image Content]' : fileContent} // Full content provided for maximum context
 
 Focus on:
 1. What is this file about? (1-2 sentence summary)
@@ -114,7 +119,12 @@ Please fix ALL the issues from previous attempts. Make sure to:
 4. Double-quote all strings properly`;
       }
 
-      response = await generatePromptResponse(config, retryPrompt);
+      response = await generatePromptResponse(config, retryPrompt, isImage ? filePath : undefined);
+
+      if (filePath) {
+        await logger.log(filePath, `Basic Analysis (Attempt ${attempt})`, { prompt: retryPrompt, response });
+      }
+
       if (!response) {
         throw new Error('Failed to get basic content analysis');
       }
@@ -936,14 +946,18 @@ export async function analyzeFileSingleCall(
   fileName: string,
   fileContent: string,
   mimeType: string | null,
-  templates?: FolderTemplate[]
+  templates?: FolderTemplate[],
+  filePath?: string
 ): Promise<FileAnalysisResult> {
+  const logger = FileLogger.getInstance();
+  const isImage = mimeType?.startsWith('image/');
+
   // Single comprehensive prompt that covers all analysis aspects
   const prompt = `Analyze this file and provide organization recommendations. Focus on understanding the content and suggesting appropriate categorization and naming.
 
 FILE: ${fileName}
 CONTENT:
-${fileContent} // Full content provided for maximum context
+${isImage ? '[Image Content]' : fileContent} // Full content provided for maximum context
 
 Return ONLY valid JSON with these exact fields:
 {
@@ -993,7 +1007,12 @@ Please fix ALL the issues from previous attempts. Make sure to:
 4. Double-quote all strings properly`;
       }
 
-      response = await generatePromptResponse(config, retryPrompt);
+      response = await generatePromptResponse(config, retryPrompt, isImage ? filePath : undefined);
+
+      if (filePath) {
+        await logger.log(filePath, `Single-Call Analysis (Attempt ${attempt})`, { prompt: retryPrompt, response });
+      }
+
       if (!response) {
         throw new Error('Failed to get single-call analysis');
       }
@@ -1073,7 +1092,8 @@ export async function analyzeFileMultiCall(
   fileName: string,
   fileContent: string,
   mimeType: string | null,
-  templates?: FolderTemplate[]
+  templates?: FolderTemplate[],
+  filePath?: string
 ): Promise<FileAnalysisResult> {
   // Determine total calls based on whether we need folder selection
   let willDoFolderSelection = false;
@@ -1088,7 +1108,7 @@ export async function analyzeFileMultiCall(
 
   // Call 1: Basic understanding
   console.log(`  📝 Call 1/${totalCalls}: Analyzing basic content...`);
-  const basicAnalysis = await analyzeBasicContent(config, fileName, fileContent, mimeType);
+  const basicAnalysis = await analyzeBasicContent(config, fileName, fileContent, mimeType, filePath);
   console.log(`     ✓ Title: ${basicAnalysis.title}`);
 
   // Call 2: Categorization

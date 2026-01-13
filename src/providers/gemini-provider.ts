@@ -21,9 +21,40 @@ export class GeminiProvider implements LLMProvider {
     this.genAI = new GoogleGenerativeAI(this.apiKey);
     this.model = this.genAI.getGenerativeModel({
       model: this.modelName,
-      generationConfig: { responseMimeType: 'application/json' },
+      generationConfig: {
+        responseMimeType: 'application/json',
+        maxOutputTokens: 8192
+      },
       systemInstruction: 'Return a flat JSON object. Do not nest the result under any root key like "analysis" or "json".'
     });
+  }
+
+  private repairJson(jsonStr: string): string {
+    try {
+      JSON.parse(jsonStr);
+      return jsonStr;
+    } catch (e) {
+      let repaired = jsonStr.trim();
+      const lastBrace = repaired.lastIndexOf('}');
+      if (lastBrace !== -1) {
+        // Try truncated at last brace
+        const candidate = repaired.substring(0, lastBrace + 1);
+        try {
+            JSON.parse(candidate);
+            return candidate;
+        } catch {}
+      }
+
+      // Try appending common closing patterns
+      const closers = ['}', ']}', '"}', '"]}', '"]}'];
+      for (const closer of closers) {
+          try {
+              JSON.parse(repaired + closer);
+              return repaired + closer;
+          } catch {}
+      }
+      return jsonStr;
+    }
   }
 
   private findDataObject(obj: any): any {
@@ -57,9 +88,19 @@ export class GeminiProvider implements LLMProvider {
   }
 
   private normalizeResponse(jsonStr: string): string {
+    let data;
     try {
-      let data = JSON.parse(jsonStr);
+      data = JSON.parse(jsonStr);
+    } catch (e) {
+      const repaired = this.repairJson(jsonStr);
+      try {
+        data = JSON.parse(repaired);
+      } catch (e2) {
+        return jsonStr;
+      }
+    }
 
+    try {
       // 1. Recursive search for the data object
       data = this.findDataObject(data);
 
