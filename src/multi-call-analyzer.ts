@@ -166,10 +166,12 @@ Please fix ALL the issues from previous attempts. Make sure to:
       }
 
       if (attempt < 10) {
-        // Show detailed error information
-        console.log(`     ⚠️  Parse error on attempt ${attempt}/10`);
-        console.log(`     📄 Raw LLM output: ${response?.substring(0, 200)}${(response?.length || 0) > 200 ? '...' : ''}`);
-        console.log(`     ❌ Error: ${lastError.message}`);
+        // Show detailed error information only in verbose mode
+        if (config.verbose) {
+          console.log(`     ⚠️  Parse error on attempt ${attempt}/10`);
+          console.log(`     📄 Raw LLM output: ${response?.substring(0, 200)}${(response?.length || 0) > 200 ? '...' : ''}`);
+          console.log(`     ❌ Error: ${lastError.message}`);
+        }
 
         await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s before retry
       }
@@ -290,9 +292,11 @@ Please fix ALL the issues from previous attempts. Make sure to:
       }
 
       if (attempt < 10) {
-        console.log(`     ⚠️  Parse error on attempt ${attempt}/10`);
-        console.log(`     📄 Raw LLM output: ${response?.substring(0, 200)}${(response?.length || 0) > 200 ? '...' : ''}`);
-        console.log(`     ❌ Error: ${lastError.message}`);
+        if (config.verbose) {
+          console.log(`     ⚠️  Parse error on attempt ${attempt}/10`);
+          console.log(`     📄 Raw LLM output: ${response?.substring(0, 200)}${(response?.length || 0) > 200 ? '...' : ''}`);
+          console.log(`     ❌ Error: ${lastError.message}`);
+        }
 
         await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s before retry
       }
@@ -425,9 +429,11 @@ Please fix ALL the issues from previous attempts. Make sure to:
       }
 
       if (attempt < 10) {
-        console.log(`     ⚠️  Parse error on attempt ${attempt}/10`);
-        console.log(`     📄 Raw LLM output: ${response?.substring(0, 200)}${(response?.length || 0) > 200 ? '...' : ''}`);
-        console.log(`     ❌ Error: ${lastError.message}`);
+        if (config.verbose) {
+          console.log(`     ⚠️  Parse error on attempt ${attempt}/10`);
+          console.log(`     📄 Raw LLM output: ${response?.substring(0, 200)}${(response?.length || 0) > 200 ? '...' : ''}`);
+          console.log(`     ❌ Error: ${lastError.message}`);
+        }
 
         await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s before retry
       }
@@ -562,9 +568,11 @@ Please fix ALL the issues from previous attempts. Make sure to:
       }
 
       if (attempt < 10) {
-        console.log(`     ⚠️  Parse error on attempt ${attempt}/10`);
-        console.log(`     📄 Raw LLM output: ${response?.substring(0, 200)}${(response?.length || 0) > 200 ? '...' : ''}`);
-        console.log(`     ❌ Error: ${lastError.message}`);
+        if (config.verbose) {
+          console.log(`     ⚠️  Parse error on attempt ${attempt}/10`);
+          console.log(`     📄 Raw LLM output: ${response?.substring(0, 200)}${(response?.length || 0) > 200 ? '...' : ''}`);
+          console.log(`     ❌ Error: ${lastError.message}`);
+        }
 
         await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s before retry
       }
@@ -728,9 +736,11 @@ Please fix ALL the issues from previous attempts. Make sure to:
       }
 
       if (attempt < 10) {
-        console.log(`     ⚠️  Parse error on attempt ${attempt}/10`);
-        console.log(`     📄 Raw LLM output: ${response?.substring(0, 200)}${(response?.length || 0) > 200 ? '...' : ''}`);
-        console.log(`     ❌ Error: ${lastError.message}`);
+        if (config.verbose) {
+          console.log(`     ⚠️  Parse error on attempt ${attempt}/10`);
+          console.log(`     📄 Raw LLM output: ${response?.substring(0, 200)}${(response?.length || 0) > 200 ? '...' : ''}`);
+          console.log(`     ❌ Error: ${lastError.message}`);
+        }
 
         await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s before retry
       }
@@ -925,9 +935,11 @@ Please fix ALL the issues from previous attempts. Make sure to:
       }
 
       if (attempt < 10) {
-        console.log(`     ⚠️  Parse error on attempt ${attempt}/10`);
-        console.log(`     📄 Raw LLM output: ${response?.substring(0, 200)}${(response?.length || 0) > 200 ? '...' : ''}`);
-        console.log(`     ❌ Error: ${lastError.message}`);
+        if (config.verbose) {
+          console.log(`     ⚠️  Parse error on attempt ${attempt}/10`);
+          console.log(`     📄 Raw LLM output: ${response?.substring(0, 200)}${(response?.length || 0) > 200 ? '...' : ''}`);
+          console.log(`     ❌ Error: ${lastError.message}`);
+        }
 
         await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s before retry
       }
