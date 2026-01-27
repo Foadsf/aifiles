@@ -25,6 +25,7 @@
     "prepare": "simple-git-hooks",
     "build": "pkgroll --minify 2>&1 | grep -v 'Circular dependency.*node_modules' || true",
     "setup": "node dist/setup-wizard.mjs",
+    "list-models": "node scripts/list-gemini-models.js",
     "templates": "node dist/cli-templates.mjs",
     "lint": "eslint --cache .",
     "type-check": "tsc",
@@ -91,6 +92,7 @@
     "npm": ">=9.0.0"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@langchain/community": "^0.2.0",
     "@langchain/core": "^0.2.0",
     "@langchain/openai": "^0.0.28",

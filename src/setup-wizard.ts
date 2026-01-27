@@ -6,6 +6,8 @@ import path from 'path';
 import os from 'os';
 import { fileExists } from './utils.js';
 import { execa } from 'execa';
+// @ts-ignore
+import { getGeminiModels } from '../scripts/list-gemini-models.js';
 
 // Check if running in non-interactive mode
 const isNonInteractive = process.env.AIFILES_NON_INTERACTIVE === 'true' ||
@@ -137,7 +139,7 @@ export async function runSetupWizard(): Promise<void> {
         {
           value: 'gemini',
           label: 'Google Gemini',
-          hint: 'Google\'s Gemini 1.5, requires API key',
+          hint: 'Google\'s Gemini 3.0, requires API key',
         },
         {
           value: 'copilot',
@@ -325,15 +327,48 @@ LLM_MODEL=${model}
       console.log(yellow('⚠️  Gemini API key not provided in AIFILES_GEMINI_API_KEY\n'));
     }
 
-    const model = isNonInteractive ?
-      (process.env.AIFILES_LLM_MODEL || 'gemini-1.5-flash') :
+    let modelOptions = [
+      { value: 'gemini-3.0-pro', label: 'Gemini 3.0 Pro - Reasoning & High Intelligence' },
+      { value: 'gemini-3.0-flash', label: 'Gemini 3.0 Flash - High Speed & Efficiency' },
+    ];
+
+    if (!isNonInteractive && apiKey) {
+      const s = spinner();
+      s.start('Fetching available Gemini models...');
+      try {
+        const fetchedModels = await getGeminiModels(apiKey);
+        if (fetchedModels && fetchedModels.length > 0) {
+          modelOptions = fetchedModels.map((m: any) => ({
+            value: m.name,
+            label: m.displayName || m.name,
+            hint: m.description ? m.description.substring(0, 60) + '...' : undefined
+          }));
+        }
+        s.stop('Models fetched successfully');
+      } catch (e) {
+        s.stop('Failed to fetch models, using defaults');
+      }
+    }
+
+    // Add custom option
+    modelOptions.push({ value: 'custom', label: 'Enter Custom Model Name', hint: 'Manually type the model ID' } as any);
+
+    let model = isNonInteractive ?
+      (process.env.AIFILES_LLM_MODEL || 'gemini-3.0-pro') :
       await select({
         message: 'Choose model:',
-        options: [
-          { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash (Fast, affordable)' },
-          { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro (Best quality)' },
-        ],
+        options: modelOptions,
       }) as string;
+
+    if (model === 'custom') {
+      model = await text({
+        message: 'Enter custom Gemini model name:',
+        placeholder: 'e.g., gemini-experimental',
+        validate: (value) => {
+          if (!value) return 'Model name is required';
+        },
+      }) as string;
+    }
 
     selectedModel = model;
     config += `GEMINI_API_KEY=${apiKey}

@@ -772,8 +772,8 @@ if (!exists) {
       try {
         // Perform analysis (single-call or multi-call based on flag)
         analysis = argv.flags.singleCall
-          ? await analyzeFileSingleCall(config, fileName, fileContent, mimeType, templates)
-          : await analyzeFileMultiCall(config, fileName, fileContent, mimeType, templates);
+          ? await analyzeFileSingleCall(config, fileName, fileContent, mimeType, templates, absolutePath)
+          : await analyzeFileMultiCall(config, fileName, fileContent, mimeType, templates, absolutePath);
       } catch (analysisError) {
         // Stop spinner and re-throw error so it can be handled by outer try-catch
         s.stop(`Analysis failed`);

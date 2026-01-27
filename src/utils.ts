@@ -1362,7 +1362,8 @@ function compressString (str: string): string {
 
 export const generatePromptResponse = async (
   config: ConfigType,
-  prompt: string | undefined
+  prompt: string | undefined,
+  imagePath?: string
 ): Promise<string | undefined> => {
   if (!prompt) {
     return undefined;
@@ -1392,6 +1393,16 @@ export const generatePromptResponse = async (
   };
 
   const llmProvider = ProviderFactory.createProvider(llmConfig);
+
+  if (imagePath && llmProvider.analyzeImage) {
+    try {
+      const result = await llmProvider.analyzeImage(imagePath, prompt);
+      return result;
+    } catch (error) {
+      console.warn('Image analysis failed, falling back to text:', error);
+    }
+  }
+
   const result = await llmProvider.sendMessage(prompt);
 
   return result;
